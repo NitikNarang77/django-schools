@@ -1,8 +1,11 @@
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import get_user_model
+
 from django.db import transaction
 from django.db.models import Count, Sum
+from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
@@ -128,7 +131,8 @@ def take_quiz(request, pk):
                         messages.warning(request, 'Better luck next time! Your score for the quiz %s was %s.' % (quiz.name, percentage))
                     else:
                         messages.success(request, 'Congratulations! You completed the quiz %s with success! You scored %s points.' % (quiz.name, percentage))
-                    return redirect('students:quiz_list')
+                    # return redirect('students:quiz_list')
+                    return redirect('students:student_quiz_results', pk)
     else:
         form = TakeQuizForm(question=question)
 
@@ -140,3 +144,25 @@ def take_quiz(request, pk):
         'answered_questions': total_questions - total_unanswered_questions,
         'total_questions': total_questions
     })
+
+
+@method_decorator([login_required, student_required], name='dispatch')
+class StudentList(ListView):
+    # model = get_user_model()
+    paginate_by = 36
+    template_name = 'classroom/students/student_list.html'
+    context_object_name = 'users'
+
+    def get_queryset(self):
+        query = self.request.GET.get('q','')
+        User = get_user_model()
+
+        queryset = User.objects.filter(is_student = True).order_by('-student__score')
+        if query:
+            # queryset = queryset.annotate(
+            #     full_name = Concat('first_name','last_name')
+            # ).filter(full_name__icontains = query)
+            queryset = queryset.filter(username__icontains = query)
+        return queryset
+
+    
